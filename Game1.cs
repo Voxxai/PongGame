@@ -33,15 +33,17 @@ namespace PongGame
             _graphics.PreferredBackBufferWidth = 900;
             _graphics.PreferredBackBufferHeight = 768;
             _graphics.ApplyChanges();
-            _ballPosition = new Vector2(512, 384); // Center of the window
-            ResetBall(); // Set initial velocity
-            _scores = new int[4];
-            _lives = new int[] { 5, 5, 5, 5 };
-            // Initialize lives to 5 for all paddles
-            _isPlayerControlled = new bool[4];
 
             // Define the square boundary for gameplay (centered in the window)
             _boundary = new Rectangle(162, 134, 500, 500);
+
+            // Set the ball position to the middle of the boundary
+            _ballPosition = new Vector2(_boundary.Left + _boundary.Width / 2, _boundary.Top + _boundary.Height / 2);
+            ResetBall(); // Set initial velocity
+
+            _scores = new int[4];
+            _lives = new int[] { 5, 5, 5, 5 }; // Initialize lives to 5 for all paddles
+            _isPlayerControlled = new bool[4];
 
             // Define paddles (Top, Bottom, Left, Right)
             _paddles = new Rectangle[4];
@@ -55,6 +57,7 @@ namespace PongGame
             _paddles[1].X = _boundary.Left + (_boundary.Width - _paddles[1].Width) / 2; // Bottom
             _paddles[2].Y = _boundary.Top + (_boundary.Height - _paddles[2].Height) / 2; // Left
             _paddles[3].Y = _boundary.Top + (_boundary.Height - _paddles[3].Height) / 2; // Right
+
             base.Initialize();
         }
 
@@ -114,22 +117,28 @@ namespace PongGame
                 if (_paddles[i] != Rectangle.Empty && _paddles[i].Intersects(ballRect))
                 {
                     hitPaddle = true;
+                    Vector2 normal;
+                    float hitFactor;
+
                     if (i < 2) // Top or Bottom paddle
                     {
-                        float ballCenter = _ballPosition.X + 5;
-                        float paddleCenter = _paddles[i].X + _paddles[i].Width / 2;
-                        float offset = (ballCenter - paddleCenter) / (_paddles[i].Width / 2);
-                        _ballVelocity.Y *= -1;
-                        _ballVelocity.X += offset * 2;
+                        hitFactor = (_ballPosition.X - _paddles[i].X) / _paddles[i].Width - 0.5f; // -0.5 to 0.5
+                        normal = new Vector2(hitFactor,
+                            i == 0 ? -1 : 1); // Top: (hitFactor, -1), Bottom: (hitFactor, 1)
                     }
                     else // Left or Right paddle
                     {
-                        float ballCenter = _ballPosition.Y + 5;
-                        float paddleCenter = _paddles[i].Y + _paddles[i].Height / 2;
-                        float offset = (ballCenter - paddleCenter) / (_paddles[i].Height / 2);
-                        _ballVelocity.X *= -1;
-                        _ballVelocity.Y += offset * 2;
+                        hitFactor = (_ballPosition.Y - _paddles[i].Y) / _paddles[i].Height - 0.5f; // -0.5 to 0.5
+                        normal = new Vector2(i == 2 ? -1 : 1,
+                            hitFactor); // Left: (-1, hitFactor), Right: (1, hitFactor)
                     }
+
+                    // Normalize the normal vector
+                    normal.Normalize();
+
+                    // Reflection formula: r = i - 2(i ⋅ n)n
+                    float dotProduct = Vector2.Dot(_ballVelocity, normal);
+                    _ballVelocity = _ballVelocity - 2 * dotProduct * normal;
 
                     // Normalize and slightly increase speed
                     _ballVelocity = Vector2.Normalize(_ballVelocity) * (_ballVelocity.Length() + 0.5f);
